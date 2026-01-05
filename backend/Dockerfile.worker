@@ -7,11 +7,12 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     software-properties-common \
+    curl \
+    ca-certificates \
     && add-apt-repository ppa:deadsnakes/ppa -y \
     && apt-get update && apt-get install -y \
     python3.12 \
     python3.12-dev \
-    python3.12-distutils \
     build-essential \
     libgl1-mesa-glx \
     libglib2.0-0 \
