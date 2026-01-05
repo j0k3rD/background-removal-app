@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   redis:
@@ -45,20 +45,16 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - UPLOAD_DIR=/data/uploads
       - RESULT_DIR=/data/results
-      - CUDA_VISIBLE_DEVICES=0
+      # Variables críticas para que el contenedor vea la GPU sin usar 'deploy resources'
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     depends_on:
       - redis
       - backend
     networks:
       - app-network
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    # ELIMINADO: El bloque 'deploy' con devices que causaba el error en Swarm
 
   frontend:
     build:
@@ -67,6 +63,7 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # OJO AQUI AARON: Lee la nota abajo sobre localhost
       - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - backend
@@ -79,4 +76,5 @@ volumes:
 
 networks:
   app-network:
-    driver: bridge
+    driver: overlay # Swarm prefiere overlay, aunque bridge suele funcionar
+    attachable: true
