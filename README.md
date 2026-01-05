@@ -35,7 +35,7 @@ Aplicación full-stack para eliminar fondos de imágenes usando IA (rembg con mo
    ```
 
 4. Acceder a la aplicación:
-   - Frontend: http://localhost:3000
+   - Frontend: http://localhost:3001
    - Backend API: http://localhost:8000
    - API Docs: http://localhost:8000/docs
 
@@ -53,7 +53,7 @@ Aplicación full-stack para eliminar fondos de imágenes usando IA (rembg con mo
 
 ## Uso
 
-1. Abre http://localhost:3000
+1. Abre http://localhost:3001
 2. Arrastra o selecciona una imagen (máx. 100MB)
 3. Espera a que se procese (el worker usa GPU)
 4. Visualiza el resultado con el slider de comparación
