@@ -61,7 +61,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       # OJO AQUI AARON: Lee la nota abajo sobre localhost
       - NEXT_PUBLIC_API_URL=http://localhost:8000
