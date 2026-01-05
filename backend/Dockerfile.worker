@@ -1,0 +1,28 @@
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    python3.12 \
+    python3.12-dev \
+    python3-pip \
+    build-essential \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN ln -s /usr/bin/python3.12 /usr/bin/python
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121 && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY src/ ./src/
+COPY entrypoint.sh /entrypoint.sh
+
+RUN chmod +x src/check_gpu.py && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

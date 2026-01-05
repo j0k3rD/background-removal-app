@@ -1,0 +1,10 @@
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+celery[redis]==5.4.0
+redis==5.2.0
+pydantic==2.9.2
+pydantic-settings==2.5.2
+rembg==2.0.60
+Pillow==11.0.0
+numpy==2.1.1
