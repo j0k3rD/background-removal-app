@@ -4,11 +4,16 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from celery.result import AsyncResult
+from pydantic import BaseModel
 from .config import settings
 from .celery_app import celery_app
-from .tasks import process_image
+from .tasks import process_image, vectorize_image
 
 app = FastAPI(title="Background Removal API")
+
+
+class UploadRequest(BaseModel):
+    task_type: str  # "remove_background" o "vectorize"
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,45 +38,56 @@ async def root():
 
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...), task_type: str = "remove_background"):
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
-    
+
+    if task_type not in ["remove_background", "vectorize"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid task_type. Use 'remove_background' or 'vectorize'"
+        )
+
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail=f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
         )
-    
+
     file_content = await file.read()
     file_size = len(file_content)
-    
+
     if file_size > settings.MAX_FILE_SIZE:
         raise HTTPException(
             status_code=400,
             detail=f"File too large. Maximum size: {settings.MAX_FILE_SIZE / (1024 * 1024)}MB"
         )
-    
+
     filename = f"{uuid.uuid4()}{ext}"
-    
+
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     os.makedirs(settings.RESULT_DIR, exist_ok=True)
-    
+
     input_path = os.path.join(settings.UPLOAD_DIR, filename)
-    
+
     with open(input_path, "wb") as f:
         f.write(file_content)
-    
-    output_filename = f"{uuid.uuid4()}.png"
-    output_path = os.path.join(settings.RESULT_DIR, output_filename)
-    
-    task = process_image.delay(input_path, output_path)
-    
+
+    if task_type == "remove_background":
+        output_filename = f"{uuid.uuid4()}.png"
+        output_path = os.path.join(settings.RESULT_DIR, output_filename)
+        task = process_image.delay(input_path, output_path)
+    else:  # vectorize
+        output_filename = f"{uuid.uuid4()}.svg"
+        output_path = os.path.join(settings.RESULT_DIR, output_filename)
+        task = vectorize_image.delay(input_path, output_path)
+
     return {
         "task_id": task.id,
         "filename": filename,
         "output_filename": output_filename,
+        "task_type": task_type,
     }
 
 
@@ -106,13 +122,15 @@ async def get_status(task_id: str):
 @app.get("/result/{filename}")
 async def get_result(filename: str):
     file_path = os.path.join(settings.RESULT_DIR, filename)
-    
+
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
-    
+
+    media_type = "image/svg+xml" if filename.endswith(".svg") else "image/png"
+
     return FileResponse(
         file_path,
-        media_type="image/png",
+        media_type=media_type,
         filename=filename,
     )
 
