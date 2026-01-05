@@ -18,6 +18,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.on_event("startup")
+async def startup_event():
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    os.makedirs(settings.RESULT_DIR, exist_ok=True)
+
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
 
@@ -48,6 +54,10 @@ async def upload_file(file: UploadFile = File(...)):
         )
     
     filename = f"{uuid.uuid4()}{ext}"
+    
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    os.makedirs(settings.RESULT_DIR, exist_ok=True)
+    
     input_path = os.path.join(settings.UPLOAD_DIR, filename)
     
     with open(input_path, "wb") as f:
