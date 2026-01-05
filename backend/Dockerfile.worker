@@ -25,6 +25,7 @@ RUN ln -sf /usr/bin/python3.12 /usr/bin/python && \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121 && \
+    pip install --no-cache-dir onnxruntime-gpu && \
     pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/

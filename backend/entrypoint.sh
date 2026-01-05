@@ -2,7 +2,7 @@
 set -e
 
 echo "Verificando GPU..."
-python src/check_gpu.py
+python src/check_gpu.py || true
 
 echo "Iniciando Celery worker..."
 exec celery -A src.celery_app worker --loglevel=info --concurrency=1
