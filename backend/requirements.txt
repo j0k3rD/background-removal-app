@@ -7,6 +7,6 @@ pydantic==2.9.2
 pydantic-settings==2.5.2
 rembg==2.0.60
 onnxruntime==1.19.2
-vtracer==0.6.4
+vtracer==0.6.11
 Pillow==11.0.0
 numpy==2.1.1
