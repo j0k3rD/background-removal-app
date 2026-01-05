@@ -5,7 +5,7 @@ import { useDropzone } from 'react-dropzone'
 import { Upload, Loader2, Download, X } from 'lucide-react'
 import ImageCompare from 'react-compare-image'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.100.80:8000'
 
 interface UploadResponse {
   task_id: string

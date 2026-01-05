@@ -64,7 +64,7 @@ services:
       - "3001:3001"
     environment:
       # OJO AQUI AARON: Lee la nota abajo sobre localhost
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://192.168.100.80:8000
     depends_on:
       - backend
     networks:
