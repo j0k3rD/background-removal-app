@@ -4,7 +4,6 @@ import os
 
 print("Verificando disponibilidad de GPU...")
 
-# Verificar variables de entorno NVIDIA
 nvidia_visible = os.environ.get("NVIDIA_VISIBLE_DEVICES", "none")
 print(f"NVIDIA_VISIBLE_DEVICES: {nvidia_visible}")
 
@@ -21,19 +20,5 @@ except ImportError:
     print("⚠ PyTorch no instalado")
 except Exception as e:
     print(f"⚠ Error verificando PyTorch CUDA: {e}")
-
-try:
-    import onnxruntime as ort
-    providers = ort.get_available_providers()
-    if "CUDAExecutionProvider" in providers:
-        print(f"✓ ONNX Runtime con CUDA disponible")
-        print(f"  Proveedores disponibles: {providers}")
-    else:
-        print(f"⚠ ONNX Runtime sin CUDA - usando CPU")
-        print(f"  Proveedores disponibles: {providers}")
-except ImportError:
-    print("⚠ onnxruntime no instalado")
-except Exception as e:
-    print(f"⚠ Error verificando ONNX Runtime: {e}")
 
 print("Continuando con el inicio del worker...")
