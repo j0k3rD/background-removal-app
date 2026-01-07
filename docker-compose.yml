@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   redis:
-    image: redis:7.4.0-alpine
+    image: redis:7.4-alpine
     ports:
       - "6379:6379"
     volumes:
@@ -16,16 +16,19 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./data/uploads:/data/uploads
       - ./data/results:/data/results
+    env_file:
+      - .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - UPLOAD_DIR=/data/uploads
-      - RESULT_DIR=/data/results
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      - UPLOAD_DIR=${UPLOAD_DIR:-/data/uploads}
+      - RESULT_DIR=${RESULT_DIR:-/data/results}
+      - SECRET_KEY=${SECRET_KEY}
     depends_on:
       - redis
     networks:
@@ -39,12 +42,15 @@ services:
     volumes:
       - ./data/uploads:/data/uploads
       - ./data/results:/data/results
+    env_file:
+      - .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - UPLOAD_DIR=/data/uploads
-      - RESULT_DIR=/data/results
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      - UPLOAD_DIR=${UPLOAD_DIR:-/data/uploads}
+      - RESULT_DIR=${RESULT_DIR:-/data/results}
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
     depends_on:
       - redis
       - backend
@@ -64,10 +70,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3001:3001"
+      - "${FRONTEND_PORT:-3001}:3001"
     environment:
-      # OJO AQUI AARON: Lee la nota abajo sobre localhost
-      - NEXT_PUBLIC_API_URL=http://192.168.100.80:8000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     depends_on:
       - backend
     networks:
@@ -79,5 +84,4 @@ volumes:
 
 networks:
   app-network:
-    driver: overlay # Swarm prefiere overlay, aunque bridge suele funcionar
-    attachable: true
+    driver: bridge

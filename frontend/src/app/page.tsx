@@ -5,7 +5,7 @@ import { useDropzone } from 'react-dropzone'
 import { Upload, Loader2, Download, X, Image as ImageIcon, FileText } from 'lucide-react'
 import ImageCompare from 'react-compare-image'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.100.80:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 type TaskType = 'remove_background' | 'vectorize'
 

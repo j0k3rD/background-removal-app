@@ -1,35 +1,26 @@
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
+ENV PATH="/opt/conda/bin:$PATH"
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    software-properties-common \
-    curl \
-    ca-certificates \
-    && add-apt-repository ppa:deadsnakes/ppa -y \
-    && apt-get update && apt-get install -y \
-    python3.12 \
-    python3.12-dev \
-    build-essential \
-    libgl1-mesa-glx \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-pip \
+    libgl1 \
     libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
-
-RUN ln -sf /usr/bin/python3.12 /usr/bin/python && \
-    ln -sf /usr/bin/python3.12 /usr/bin/python3
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121 && \
-    pip install --no-cache-dir -r requirements.txt
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir rembg[cpu] onnxruntime-gpu
 
 COPY src/ ./src/
 COPY entrypoint.sh /entrypoint.sh
 
-RUN chmod +x src/check_gpu.py && chmod +x /entrypoint.sh
+RUN chmod +x src/check_gpu.py /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
