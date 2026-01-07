@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, Download, X, Image as ImageIcon, FileText, Sparkles } from 'lucide-react'
+import { Upload, Download, X, Image as ImageIcon, FileText, Check, AlertCircle } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,8 +13,10 @@ import { ImageCompare } from '@/components/ui-comparison/image-compare'
 import { VectorDisplay } from '@/components/ui-comparison/vector-display'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const MAX_IMAGES = 10
 
 type TaskType = 'remove_background' | 'vectorize'
+type ProcessingStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILURE'
 
 interface UploadResponse {
   task_id: string
@@ -24,24 +26,43 @@ interface UploadResponse {
 }
 
 interface StatusResponse {
-  status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILURE'
+  status: ProcessingStatus
   result: string | number | null
+}
+
+interface ImageProcess {
+  file: File
+  taskId: string | null
+  status: ProcessingStatus | null
+  originalUrl: string | null
+  processedUrl: string | null
+  progress: number
+  error: string | null
 }
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TaskType>('remove_background')
-  const [removeBgFile, setRemoveBgFile] = useState<File | null>(null)
-  const [vectorizeFile, setVectorizeFile] = useState<File | null>(null)
-  const [removeBgTaskId, setRemoveBgTaskId] = useState<string | null>(null)
-  const [vectorizeTaskId, setVectorizeTaskId] = useState<string | null>(null)
-  const [removeBgStatus, setRemoveBgStatus] = useState<StatusResponse['status'] | null>(null)
-  const [vectorizeStatus, setVectorizeStatus] = useState<StatusResponse['status'] | null>(null)
-  const [removeBgOriginal, setRemoveBgOriginal] = useState<string | null>(null)
-  const [vectorizeOriginal, setVectorizeOriginal] = useState<string | null>(null)
-  const [removeBgProcessed, setRemoveBgProcessed] = useState<string | null>(null)
-  const [vectorizeProcessed, setVectorizeProcessed] = useState<string | null>(null)
-  const [removeBgProgress, setRemoveBgProgress] = useState<number>(0)
-  const [vectorizeProgress, setVectorizeProgress] = useState<number>(0)
+  const [removeBgImages, setRemoveBgImages] = useState<ImageProcess[]>([])
+  const [vectorizeImages, setVectorizeImages] = useState<ImageProcess[]>([])
+
+  const getImages = (taskType: TaskType) => 
+    taskType === 'remove_background' ? removeBgImages : vectorizeImages
+
+  const setImages = (taskType: TaskType, images: ImageProcess[] | ((prev: ImageProcess[]) => ImageProcess[])) => {
+    if (taskType === 'remove_background') {
+      if (typeof images === 'function') {
+        setRemoveBgImages(images)
+      } else {
+        setRemoveBgImages(images)
+      }
+    } else {
+      if (typeof images === 'function') {
+        setVectorizeImages(images)
+      } else {
+        setVectorizeImages(images)
+      }
+    }
+  }
 
   const handleUpload = useCallback(async (file: File, taskType: TaskType) => {
     const formData = new FormData()
@@ -61,155 +82,259 @@ export default function Home() {
 
       const data: UploadResponse = await response.json()
 
-      if (taskType === 'remove_background') {
-        setRemoveBgTaskId(data.task_id)
-        setRemoveBgStatus('PENDING')
-        setRemoveBgOriginal(`${API_URL}/original/${data.filename}`)
-      } else {
-        setVectorizeTaskId(data.task_id)
-        setVectorizeStatus('PENDING')
-        setVectorizeOriginal(`${API_URL}/original/${data.filename}`)
-      }
+      setImages(taskType, (prev: ImageProcess[]) => prev.map(img => {
+        if (img.file.name === file.name) {
+          return {
+            ...img,
+            taskId: data.task_id,
+            status: 'PENDING',
+            originalUrl: `${API_URL}/original/${data.filename}`
+          }
+        }
+        return img
+      }))
     } catch (err) {
       console.error('Error uploading file:', err)
-      if (taskType === 'remove_background') {
-        setRemoveBgFile(null)
-      } else {
-        setVectorizeFile(null)
-      }
+      const errorMsg = err instanceof Error ? err.message : 'Error uploading file'
+      setImages(taskType, (prev: ImageProcess[]) => prev.map(img => {
+        if (img.file.name === file.name) {
+          return { ...img, error: errorMsg }
+        }
+        return img
+      }))
     }
   }, [])
 
   const onDropRemoveBg = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    if (!file) return
-    setRemoveBgFile(file)
-    setRemoveBgProgress(0)
-    await handleUpload(file, 'remove_background')
+    const images = getImages('remove_background')
+    const newImages: ImageProcess[] = acceptedFiles.map(file => ({
+      file,
+      taskId: null,
+      status: null as ProcessingStatus | null,
+      originalUrl: null,
+      processedUrl: null,
+      progress: 0,
+      error: null
+    }))
+    
+    setRemoveBgImages([...images, ...newImages])
+    
+    for (const file of acceptedFiles) {
+      await handleUpload(file, 'remove_background')
+    }
   }, [handleUpload])
 
   const onDropVectorize = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    if (!file) return
-    setVectorizeFile(file)
-    setVectorizeProgress(0)
-    await handleUpload(file, 'vectorize')
+    const images = getImages('vectorize')
+    const newImages: ImageProcess[] = acceptedFiles.map(file => ({
+      file,
+      taskId: null,
+      status: null as ProcessingStatus | null,
+      originalUrl: null,
+      processedUrl: null,
+      progress: 0,
+      error: null
+    }))
+    
+    setVectorizeImages([...images, ...newImages])
+    
+    for (const file of acceptedFiles) {
+      await handleUpload(file, 'vectorize')
+    }
   }, [handleUpload])
 
   const { getRootProps: getRemoveBgRootProps, getInputProps: getRemoveBgInputProps, isDragActive: isRemoveBgActive } = useDropzone({
     onDrop: onDropRemoveBg,
     accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] },
     maxSize: 100 * 1024 * 1024,
-    multiple: false,
+    multiple: true,
+    maxFiles: MAX_IMAGES,
   })
 
   const { getRootProps: getVectorizeRootProps, getInputProps: getVectorizeInputProps, isDragActive: isVectorizeActive } = useDropzone({
     onDrop: onDropVectorize,
     accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] },
     maxSize: 100 * 1024 * 1024,
-    multiple: false,
+    multiple: true,
+    maxFiles: MAX_IMAGES,
   })
 
   useEffect(() => {
-    const checkStatus = async (taskId: string, setStatus: (status: StatusResponse['status'] | null) => void, setProgress: (progress: number) => void, setProcessed: (url: string | null) => void, isVectorize: boolean) => {
+    const checkStatus = async (taskId: string, taskType: TaskType) => {
       try {
         const response = await fetch(`${API_URL}/status/${taskId}`)
         if (!response.ok) return
 
         const data: StatusResponse = await response.json()
-        setStatus(data.status)
 
-        if (data.status === 'PROCESSING' && typeof data.result === 'number') {
-          setProgress(data.result)
-        }
+        setImages(taskType, (prev: ImageProcess[]) => prev.map(img => {
+          if (img.taskId === taskId) {
+            const updates: Partial<ImageProcess> = { status: data.status }
 
-        if (data.status === 'SUCCESS' && typeof data.result === 'string') {
-          setProcessed(`${API_URL}/result/${data.result}`)
-          setProgress(100)
-        }
+            if (data.status === 'PROCESSING' && typeof data.result === 'number') {
+              updates.progress = data.result
+            }
 
-        if (data.status === 'FAILURE') {
-          setStatus(null)
-        }
+            if (data.status === 'SUCCESS' && typeof data.result === 'string') {
+              updates.processedUrl = `${API_URL}/result/${data.result}`
+              updates.progress = 100
+            }
+
+            if (data.status === 'FAILURE') {
+              updates.error = 'Error processing image'
+              updates.status = null
+            }
+
+            return { ...img, ...updates }
+          }
+          return img
+        }))
       } catch (err) {
         console.error('Error checking status:', err)
       }
     }
 
-    if (removeBgTaskId) {
-      const interval = setInterval(() => {
-        checkStatus(removeBgTaskId, setRemoveBgStatus, setRemoveBgProgress, setRemoveBgProcessed, false)
-      }, 2000)
-      return () => clearInterval(interval)
-    }
-  }, [removeBgTaskId])
-
-  useEffect(() => {
-    const checkStatus = async (taskId: string, setStatus: (status: StatusResponse['status'] | null) => void, setProgress: (progress: number) => void, setProcessed: (url: string | null) => void, isVectorize: boolean) => {
-      try {
-        const response = await fetch(`${API_URL}/status/${taskId}`)
-        if (!response.ok) return
-
-        const data: StatusResponse = await response.json()
-        setStatus(data.status)
-
-        if (data.status === 'PROCESSING' && typeof data.result === 'number') {
-          setProgress(data.result)
+    const checkAllStatuses = (taskType: TaskType) => {
+      const images = getImages(taskType)
+      images.forEach(img => {
+        if (img.taskId && (img.status === 'PENDING' || img.status === 'PROCESSING')) {
+          checkStatus(img.taskId, taskType)
         }
-
-        if (data.status === 'SUCCESS' && typeof data.result === 'string') {
-          setProcessed(`${API_URL}/result/${data.result}`)
-          setProgress(100)
-        }
-
-        if (data.status === 'FAILURE') {
-          setStatus(null)
-        }
-      } catch (err) {
-        console.error('Error checking status:', err)
-      }
+      })
     }
 
-    if (vectorizeTaskId) {
-      const interval = setInterval(() => {
-        checkStatus(vectorizeTaskId, setVectorizeStatus, setVectorizeProgress, setVectorizeProcessed, true)
-      }, 2000)
-      return () => clearInterval(interval)
-    }
-  }, [vectorizeTaskId])
+    const intervalRemoveBg = setInterval(() => checkAllStatuses('remove_background'), 2000)
+    const intervalVectorize = setInterval(() => checkAllStatuses('vectorize'), 2000)
 
-  const handleReset = useCallback((taskType: TaskType) => {
-    if (taskType === 'remove_background') {
-      setRemoveBgFile(null)
-      setRemoveBgTaskId(null)
-      setRemoveBgStatus(null)
-      setRemoveBgOriginal(null)
-      setRemoveBgProcessed(null)
-      setRemoveBgProgress(0)
-    } else {
-      setVectorizeFile(null)
-      setVectorizeTaskId(null)
-      setVectorizeStatus(null)
-      setVectorizeOriginal(null)
-      setVectorizeProcessed(null)
-      setVectorizeProgress(0)
+    return () => {
+      clearInterval(intervalRemoveBg)
+      clearInterval(intervalVectorize)
     }
+  }, [removeBgImages, vectorizeImages])
+
+  const handleRemoveImage = useCallback((index: number, taskType: TaskType) => {
+    setImages(taskType, prev => prev.filter((_, i) => i !== index))
   }, [])
 
   const handleDownload = useCallback((url: string, filename: string) => {
     window.open(url, '_blank')
   }, [])
 
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="max-w-4xl mx-auto p-4 md:p-8">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-              Image Processor
-            </h1>
+  const renderImageCard = (img: ImageProcess, index: number, taskType: TaskType) => {
+    const isVectorize = taskType === 'vectorize'
+    const isProcessing = img.status === 'PENDING' || img.status === 'PROCESSING'
+    const isSuccess = img.status === 'SUCCESS'
+    const hasError = img.error !== null
+
+    return (
+      <Card key={index} className="border-none shadow-sm">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {isSuccess ? (
+                <div className="p-2 bg-green-500/10 rounded-lg shrink-0">
+                  <Check className="h-4 w-4 text-green-500" />
+                </div>
+              ) : hasError ? (
+                <div className="p-2 bg-red-500/10 rounded-lg shrink-0">
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                </div>
+              ) : (
+                <div className="p-2 bg-primary/10 rounded-lg shrink-0">
+                  {isVectorize ? (
+                    <FileText className="h-4 w-4 text-primary" />
+                  ) : (
+                    <ImageIcon className="h-4 w-4 text-primary" />
+                  )}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{img.file.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(img.file.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleRemoveImage(index, taskType)}
+              className="shrink-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
+
+          {hasError && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400">{img.error}</p>
+            </div>
+          )}
+
+          {isProcessing && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
+                {img.status === 'PENDING' && 'Waiting to process...'}
+                {img.status === 'PROCESSING' && `Processing... ${img.progress}%`}
+              </div>
+              <Progress value={img.progress} className="h-2" />
+            </div>
+          )}
+
+          {img.originalUrl && isSuccess && img.processedUrl && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Badge variant="outline" className="text-xs">
+                  {isVectorize ? 'SVG Result' : 'Compare images'}
+                </Badge>
+                <Button
+                  size="sm"
+                  onClick={() => handleDownload(
+                    img.processedUrl!,
+                    img.file.name.replace(/\.[^/.]+$/, isVectorize ? '.svg' : '.png')
+                  )}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download {isVectorize ? 'SVG' : 'PNG'}
+                </Button>
+              </div>
+              {isVectorize ? (
+                <VectorDisplay svgUrl={img.processedUrl} filename={img.file.name} />
+              ) : (
+                <ImageCompare
+                  leftImage={img.originalUrl}
+                  rightImage={img.processedUrl}
+                  leftLabel="Original"
+                  rightLabel="No Background"
+                />
+              )}
+            </div>
+          )}
+
+          {img.originalUrl && !img.processedUrl && !isProcessing && (
+            <div className="aspect-video rounded-lg border bg-muted/10 overflow-hidden">
+              <img
+                src={img.originalUrl}
+                alt="Original"
+                className="w-full h-full object-contain"
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const canUpload = (taskType: TaskType) => {
+    const images = getImages(taskType)
+    return images.length < MAX_IMAGES
+  }
+
+  return (
+    <main className="min-h-screen bg-background">
+      <div className="max-w-4xl mx-auto p-4 md:p-8">
+        <div className="flex justify-end mb-8">
           <ThemeToggle />
         </div>
 
@@ -226,9 +351,9 @@ export default function Home() {
           </TabsList>
 
           <TabsContent value="remove_background" className="space-y-6">
-            <Card className="border-none shadow-lg">
-              <CardContent className="p-8">
-                {!removeBgFile ? (
+            {canUpload('remove_background') && (
+              <Card className="border-none shadow-lg">
+                <CardContent className="p-8">
                   <div
                     {...getRemoveBgRootProps()}
                     className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-200 ${
@@ -244,93 +369,32 @@ export default function Home() {
                       </div>
                       <div>
                         <p className="text-lg font-semibold mb-1">
-                          {isRemoveBgActive ? 'Drop your image here' : 'Upload an image'}
+                          {isRemoveBgActive ? 'Drop images here' : 'Upload images'}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Drag and drop or click to browse
+                          Drag and drop or click to browse (up to {MAX_IMAGES} images)
                         </p>
                       </div>
                       <Badge variant="secondary" className="text-xs">
-                        JPG, PNG, WEBP up to 100MB
+                        JPG, PNG, WEBP up to 100MB each
                       </Badge>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          <ImageIcon className="h-4 w-4 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{removeBgFile.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {(removeBgFile.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleReset('remove_background')}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+                </CardContent>
+              </Card>
+            )}
 
-                    {removeBgStatus && removeBgStatus !== 'SUCCESS' && (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-                          {removeBgStatus === 'PENDING' && 'Waiting to process...'}
-                          {removeBgStatus === 'PROCESSING' && `Processing image... ${removeBgProgress}%`}
-                        </div>
-                        <Progress value={removeBgProgress} className="h-2" />
-                      </div>
-                    )}
-
-                    {removeBgOriginal && removeBgProcessed && (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="outline" className="text-xs">
-                            Compare original vs processed
-                          </Badge>
-                          <Button
-                            size="sm"
-                            onClick={() => handleDownload(removeBgProcessed, removeBgFile.name)}
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download PNG
-                          </Button>
-                        </div>
-                        <ImageCompare
-                          leftImage={removeBgOriginal}
-                          rightImage={removeBgProcessed}
-                          leftLabel="Original"
-                          rightLabel="No Background"
-                        />
-                      </div>
-                    )}
-
-                    {removeBgOriginal && !removeBgProcessed && (
-                      <div className="aspect-video rounded-lg border bg-muted/10 overflow-hidden">
-                        <img
-                          src={removeBgOriginal}
-                          alt="Original"
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {removeBgImages.length > 0 && (
+              <div className="grid gap-4">
+                {removeBgImages.map((img, index) => renderImageCard(img, index, 'remove_background'))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="vectorize" className="space-y-6">
-            <Card className="border-none shadow-lg">
-              <CardContent className="p-8">
-                {!vectorizeFile ? (
+            {canUpload('vectorize') && (
+              <Card className="border-none shadow-lg">
+                <CardContent className="p-8">
                   <div
                     {...getVectorizeRootProps()}
                     className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-200 ${
@@ -346,82 +410,26 @@ export default function Home() {
                       </div>
                       <div>
                         <p className="text-lg font-semibold mb-1">
-                          {isVectorizeActive ? 'Drop your image here' : 'Upload an image to vectorize'}
+                          {isVectorizeActive ? 'Drop images here' : 'Upload images to vectorize'}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Convert to high-quality SVG vector
+                          Convert to high-quality SVG vectors (up to {MAX_IMAGES} images)
                         </p>
                       </div>
                       <Badge variant="secondary" className="text-xs">
-                        JPG, PNG, WEBP up to 100MB
+                        JPG, PNG, WEBP up to 100MB each
                       </Badge>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          <FileText className="h-4 w-4 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{vectorizeFile.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {(vectorizeFile.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleReset('vectorize')}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+                </CardContent>
+              </Card>
+            )}
 
-                    {vectorizeStatus && vectorizeStatus !== 'SUCCESS' && (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-                          {vectorizeStatus === 'PENDING' && 'Waiting to process...'}
-                          {vectorizeStatus === 'PROCESSING' && `Vectorizing... ${vectorizeProgress}%`}
-                        </div>
-                        <Progress value={vectorizeProgress} className="h-2" />
-                      </div>
-                    )}
-
-                    {vectorizeOriginal && vectorizeProcessed && (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="outline" className="text-xs">
-                            SVG Vector Result
-                          </Badge>
-                          <Button
-                            size="sm"
-                            onClick={() => handleDownload(vectorizeProcessed, vectorizeFile.name.replace(/\.[^/.]+$/, '.svg'))}
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download SVG
-                          </Button>
-                        </div>
-                        <VectorDisplay svgUrl={vectorizeProcessed} filename={vectorizeFile.name} />
-                      </div>
-                    )}
-
-                    {vectorizeOriginal && !vectorizeProcessed && (
-                      <div className="aspect-video rounded-lg border bg-muted/10 overflow-hidden">
-                        <img
-                          src={vectorizeOriginal}
-                          alt="Original"
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {vectorizeImages.length > 0 && (
+              <div className="grid gap-4">
+                {vectorizeImages.map((img, index) => renderImageCard(img, index, 'vectorize'))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

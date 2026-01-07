@@ -75,10 +75,10 @@ services:
       dockerfile: Dockerfile
       cache_from:
         - frontend:latest
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
       - "${FRONTEND_PORT:-3001}:3001"
-    environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     depends_on:
       - backend
     networks:

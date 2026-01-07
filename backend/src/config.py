@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     RESULT_DIR: str = "/data/results"
     MAX_FILE_SIZE: int = 100 * 1024 * 1024
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
 settings = Settings()
