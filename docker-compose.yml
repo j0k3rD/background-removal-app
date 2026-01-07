@@ -15,6 +15,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      cache_from:
+        - backend:latest
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
@@ -39,6 +41,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.worker
+      cache_from:
+        - worker:latest
     volumes:
       - ./data/uploads:/data/uploads
       - ./data/results:/data/results
@@ -69,6 +73,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      cache_from:
+        - frontend:latest
     ports:
       - "${FRONTEND_PORT:-3001}:3001"
     environment:

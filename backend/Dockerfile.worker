@@ -1,26 +1,40 @@
-FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV PATH="/opt/conda/bin:$PATH"
 
-WORKDIR /app
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-pip \
     libgl1 \
     libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* ~/.cache
 
+WORKDIR /app
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir rembg[cpu] onnxruntime-gpu
+    pip install --no-cache-dir rembg[gpu] && \
+    conda clean -afy
 
+FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime AS runner
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PATH="/opt/conda/bin:$PATH"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* ~/.cache
+
+WORKDIR /app
+
+COPY --from=builder /opt/conda /opt/conda
 COPY src/ ./src/
 COPY entrypoint.sh /entrypoint.sh
 
-RUN chmod +x src/check_gpu.py /entrypoint.sh
+RUN chmod +x src/check_gpu.py /entrypoint.sh && \
+    conda clean -afy
 
 ENTRYPOINT ["/entrypoint.sh"]

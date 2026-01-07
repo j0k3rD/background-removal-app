@@ -15,3 +15,6 @@ yarn-error.log*
 turbo
 coverage
 .vercel
+dist
+build
+*.log
