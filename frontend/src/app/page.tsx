@@ -216,8 +216,22 @@ export default function Home() {
     setImages(taskType, prev => prev.filter((_, i) => i !== index))
   }, [])
 
-  const handleDownload = useCallback((url: string, filename: string) => {
-    window.open(url, '_blank')
+  const handleDownload = useCallback(async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url)
+      const blob = await response.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(blobUrl)
+    } catch (error) {
+      console.error('Error downloading file:', error)
+      window.open(url, '_blank')
+    }
   }, [])
 
   const renderImageCard = (img: ImageProcess, index: number, taskType: TaskType) => {
@@ -300,7 +314,7 @@ export default function Home() {
                 </Button>
               </div>
               {isVectorize ? (
-                <VectorDisplay svgUrl={img.processedUrl} filename={img.file.name} />
+                <VectorDisplay svgUrl={img.processedUrl} originalUrl={img.originalUrl || undefined} filename={img.file.name} />
               ) : (
                 <ImageCompare
                   leftImage={img.originalUrl}

@@ -195,6 +195,47 @@ Si el worker sigue muriendo con SIGKILL:
 
 3. Reduce el tamaño de las imágenes de entrada antes de procesarlas
 
+## Optimización de Espacio
+
+### Limpiar imágenes y contenedores antiguos
+
+Para liberar espacio en disco después de rebuilds:
+
+```bash
+./cleanup-docker.sh
+```
+
+Este script:
+- Elimina contenedores stopped
+- Elimina imágenes dangling y no usadas
+- Limpia el build cache de Docker
+- Limpia volúmenes no usados
+
+### Manualmente
+
+```bash
+# Ver uso de espacio actual
+docker system df
+
+# Limpiar todo lo no usado
+docker system prune -a --volumes -f
+
+# Solo limpiar imágenes
+docker image prune -a -f
+
+# Solo limpiar build cache
+docker builder prune -af
+```
+
+### Tamaño esperado de imágenes
+
+- **Frontend**: ~200-300MB
+- **Backend**: ~500MB-1GB
+- **Worker**: ~8-12GB (PyTorch con CUDA es grande por diseño)
+- **Redis**: ~40MB
+
+Si el worker es >15GB, algo salió mal en el build. Haz un cleanup y rebuild.
+
 ## Notas
 
 - El worker procesa una imagen a la vez (concurrency=1) para evitar OOM en la GPU
@@ -202,3 +243,4 @@ Si el worker sigue muriendo con SIGKILL:
 - El modelo birefnet-general se descarga automáticamente la primera vez (~973MB)
 - ONNX Runtime 1.19.2 usa CUDA 12.1 directamente (sin TensorRT)
 - Los logs del worker son muy detallados para facilitar debugging
+- La imagen del worker es grande (~10GB) porque incluye PyTorch, CUDA y cuDNN

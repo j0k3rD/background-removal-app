@@ -95,9 +95,16 @@ def process_image(self: Task, input_path: str, output_path: str) -> dict:
         
         self.update_state(state="PROCESSING", meta={"progress": 50})
         
-        logger.info("Procesando con rembg...")
+        logger.info("Procesando con rembg (alpha matting para bordes finos)...")
         session = get_session()
-        output_data = remove(input_data, session=session)
+        output_data = remove(
+            input_data,
+            session=session,
+            alpha_matting=True,
+            alpha_matting_foreground_threshold=240,
+            alpha_matting_background_threshold=10,
+            alpha_matting_erode_size=10
+        )
         
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
@@ -138,14 +145,14 @@ def vectorize_image(self: Task, input_path: str, output_path: str) -> dict:
             colormode="color",
             hierarchical="stacked",
             mode="spline",
-            filter_speckle=4,
-            color_precision=6,
-            layer_difference=16,
-            corner_threshold=60,
-            length_threshold=10,
-            max_iterations=10,
-            splice_threshold=45,
-            path_precision=8
+            filter_speckle=2,
+            color_precision=8,
+            layer_difference=8,
+            corner_threshold=45,
+            length_threshold=4,
+            max_iterations=15,
+            splice_threshold=30,
+            path_precision=10
         )
 
         self.update_state(state="PROCESSING", meta={"progress": 100})
