@@ -27,10 +27,12 @@ COPY requirements.txt .
  # Instalar dependencias Python con limpieza agresiva
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir numpy==2.1.1 && \
-    pip install --only-binary :all: --no-cache-dir scipy==1.13.1 && \
+    pip install --only-binary :all: --no-cache-dir --prefer-binary scipy==1.13.1 && \
     python -c "from scipy.sparse.csgraph import _shortest_path; print('scipy OK')" && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir rembg[gpu] && \
+    pip install --no-cache-dir --prefer-binary pymatting==1.1.12 && \
+    pip install --no-cache-dir --prefer-binary -r requirements.txt && \
+    pip install --no-cache-dir --prefer-binary rembg[gpu] && \
+    pip install --no-cache-dir --prefer-binary onnxruntime-gpu==1.19.2 && \
     rm -rf /root/.cache /root/.local/share /tmp/* && \
     find /opt/conda -type f -name "*.pyc" -delete && \
     find /opt/conda -type d -name "__pycache__" -delete && \
