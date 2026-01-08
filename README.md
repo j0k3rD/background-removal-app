@@ -29,23 +29,44 @@ Aplicación full-stack para procesar imágenes usando IA. Funcionalidades: elimi
     sudo systemctl restart docker
     ```
 
-3. Construir y levantar los servicios:
+3. Verificar que Docker puede acceder a la GPU:
+    ```bash
+    docker run --rm --gpus all nvidia/cuda:12.1-base-ubuntu22.04 nvidia-smi
+    ```
+
+4. (Opcional) Probar la GPU con el worker antes de iniciar:
+    ```bash
+    ./test-worker-gpu.sh
+    ```
+    Busca `✓` en los logs para confirmar que PyTorch y ONNX Runtime están usando la GPU.
+
+5. Construir y levantar los servicios:
     ```bash
     docker-compose up --build
     ```
 
-4. Acceder a la aplicación:
+6. Acceder a la aplicación:
     - Frontend: http://localhost:3001
     - Backend API: http://localhost:8000
     - API Docs: http://localhost:8000/docs
+
+7. Para ver si el worker está usando la GPU:
+    ```bash
+    # En otra terminal
+    watch nvidia-smi
+    ```
+    Cuando proceses una imagen, deberías ver la memoria de GPU aumentar.
 
 ## Estructura del Proyecto
 
 ```
 /
 ├── docker-compose.yml
+├── test-worker-gpu.sh  # Script para probar GPU en worker
 ├── frontend/          # Next.js 16 + shadcn/ui
 ├── backend/           # FastAPI + Celery
+│   ├── test_gpu.py    # Script completo de test de GPU
+│   └── check_gpu.py   # Script simple de verificación
 └── data/              # Volúmenes compartidos
     ├── uploads/       # Imágenes originales
     └── results/       # Imágenes procesadas
@@ -74,10 +95,61 @@ Aplicación full-stack para procesar imágenes usando IA. Funcionalidades: elimi
 - Comparación interactiva de antes/después
 - Vectorización a SVG de alta calidad
 - Interfaz minimalista y responsive
-- Aceleración por GPU NVIDIA
+- Aceleración por GPU NVIDIA con logging detallado
+
+## Troubleshooting
+
+### GPU no detectada
+
+Si ves errores como:
+- `Failed to load library libonnxruntime_providers_cuda.so`
+- `libnvinfer.so.10: cannot open shared object file`
+- `libnvinfer.so.9: cannot open shared object file`
+
+Ejecuta:
+```bash
+./test-worker-gpu.sh
+```
+
+El script mostrará:
+- ✓ si PyTorch está usando CUDA
+- ✓ si ONNX Runtime está usando CUDAExecutionProvider
+- Detalles de los providers disponibles
+
+### Verificar uso de GPU
+
+Cuando proceses una imagen, ejecuta en otra terminal:
+```bash
+watch nvidia-smi
+```
+
+Deberías ver:
+- El proceso `celery` o `python` usando la GPU
+- La memoria de GPU aumentando
+- El uso de GPU en la columna "GPU-Util"
+
+Si NO ves aumento en la memoria de GPU, el worker está usando CPU.
+
+### Logs del Worker
+
+Los logs del worker incluyen información detallada:
+```
+[timestamp] [INFO] ============================================================
+[timestamp] [INFO] GPU DETECTADA - PYTORCH
+[timestamp] [INFO]   ✓ Dispositivo: NVIDIA GeForce RTX 3080
+[timestamp] [INFO]   ✓ Versión CUDA: 12.1
+[timestamp] [INFO] ============================================================
+[timestamp] [INFO] ONNX RUNTIME PROVIDERS
+[timestamp] [INFO] ============================================================
+[timestamp] [INFO]   ✓ CUDAExecutionProvider
+[timestamp] [INFO] ============================================================
+```
+
+Busca `✓` para confirmar que la GPU está configurada correctamente.
 
 ## Notas
 
 - El worker procesa una imagen a la vez (concurrency=1) para evitar OOM en la GPU
 - Las imágenes se guardan en volúmenes Docker compartidos
 - El modelo birefnet-general se descarga automáticamente la primera vez
+- ONNX Runtime intentará usar CUDA primero, fallback a CPU si no está disponible

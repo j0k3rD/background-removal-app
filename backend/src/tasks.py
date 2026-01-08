@@ -11,39 +11,90 @@ logger = logging.getLogger(__name__)
 session = None
 
 
+def check_gpu_availability():
+    try:
+        import torch
+        if torch.cuda.is_available():
+            logger.info("="*60)
+            logger.info("GPU DETECTADA - PYTORCH")
+            logger.info("="*60)
+            logger.info(f"  ✓ Dispositivo: {torch.cuda.get_device_name(0)}")
+            logger.info(f"  ✓ Versión CUDA: {torch.version.cuda}")
+            logger.info(f"  ✓ Memoria: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+            logger.info(f"  ✓ Número de GPUs: {torch.cuda.device_count()}")
+        else:
+            logger.warning("⚠ CUDA NO DISPONIBLE en PyTorch - Procesamiento será en CPU")
+    except ImportError:
+        logger.error("⚠ PyTorch no está instalado")
+    except Exception as e:
+        logger.error(f"⚠ Error verificando PyTorch CUDA: {e}")
+
+    try:
+        import onnxruntime as ort
+        available_providers = ort.get_available_providers()
+        logger.info("="*60)
+        logger.info("ONNX RUNTIME PROVIDERS")
+        logger.info("="*60)
+        for i, provider in enumerate(available_providers, 1):
+            status = "✓" if provider in available_providers else "✗"
+            logger.info(f"  {status} {provider}")
+        
+        if "CUDAExecutionProvider" in available_providers:
+            logger.info("  ✓ ONNX Runtime usará GPU (CUDA)")
+        else:
+            logger.warning("  ⚠ ONNX Runtime usará CPU (CUDA no disponible)")
+    except ImportError:
+        logger.error("⚠ ONNX Runtime no está instalado")
+    except Exception as e:
+        logger.error(f"⚠ Error verificando ONNX Runtime: {e}")
+    
+    logger.info("="*60)
+
+
 def get_session():
     global session
     if session is None:
+        check_gpu_availability()
+        logger.info("Cargando modelo birefnet-general...")
         session = new_session("birefnet-general")
+        logger.info("Modelo cargado exitosamente")
     return session
 
 
 @celery_app.task(bind=True, name="process_image")
 def process_image(self: Task, input_path: str, output_path: str) -> dict:
     try:
+        logger.info("="*60)
+        logger.info("INICIANDO PROCESAMIENTO DE IMAGEN")
+        logger.info("="*60)
+        logger.info(f"Input: {input_path}")
+        logger.info(f"Output: {output_path}")
+        
         self.update_state(state="PROCESSING", meta={"progress": 0})
         
         if not os.path.exists(input_path):
             raise FileNotFoundError(f"Input file not found: {input_path}")
 
-        logger.info(f"Processing image: {input_path} -> {output_path}")
-        
+        logger.info("Leyendo imagen...")
         with open(input_path, "rb") as input_file:
             input_data = input_file.read()
         
         self.update_state(state="PROCESSING", meta={"progress": 50})
         
+        logger.info("Procesando con rembg...")
         session = get_session()
         output_data = remove(input_data, session=session)
         
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
+        logger.info("Guardando resultado...")
         with open(output_path, "wb") as output_file:
             output_file.write(output_data)
         
         self.update_state(state="PROCESSING", meta={"progress": 100})
         
-        logger.info(f"Image processed successfully: {output_path}")
+        logger.info("✓ Imagen procesada exitosamente")
+        logger.info("="*60)
         
         return {
             "status": "SUCCESS",
@@ -51,7 +102,7 @@ def process_image(self: Task, input_path: str, output_path: str) -> dict:
             "filename": os.path.basename(output_path),
         }
     except Exception as e:
-        logger.error(f"Error processing image: {str(e)}", exc_info=True)
+        logger.error(f"✗ Error procesando imagen: {str(e)}", exc_info=True)
         raise
 
 
