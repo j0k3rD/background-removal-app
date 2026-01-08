@@ -56,8 +56,22 @@ def get_session():
     if session is None:
         check_gpu_availability()
         logger.info("Cargando modelo birefnet-general...")
-        session = new_session("birefnet-general")
-        logger.info("Modelo cargado exitosamente")
+        
+        try:
+            import onnxruntime as ort
+            
+            session_options = ort.SessionOptions()
+            session_options.log_severity_level = 0
+            
+            session = new_session("birefnet-general", session_options)
+            logger.info("Modelo cargado exitosamente")
+            logger.info(f"  Session providers: {session.providers}")
+        except Exception as e:
+            logger.error(f"Error cargando modelo: {e}")
+            logger.error("Intentando fallback a CPU...")
+            session = new_session("birefnet-general")
+            logger.info("Modelo cargado en CPU (fallback)")
+    
     return session
 
 
@@ -114,7 +128,7 @@ def vectorize_image(self: Task, input_path: str, output_path: str) -> dict:
         if not os.path.exists(input_path):
             raise FileNotFoundError(f"Input file not found: {input_path}")
 
-        logger.info(f"Vectorizing image: {input_path} -> {output_path}")
+        logger.info(f"Vectorizando imagen: {input_path} -> {output_path}")
 
         self.update_state(state="PROCESSING", meta={"progress": 30})
 
@@ -144,5 +158,5 @@ def vectorize_image(self: Task, input_path: str, output_path: str) -> dict:
             "filename": os.path.basename(output_path),
         }
     except Exception as e:
-        logger.error(f"Error vectorizing image: {str(e)}", exc_info=True)
+        logger.error(f"Error vectorizando imagen: {str(e)}", exc_info=True)
         raise

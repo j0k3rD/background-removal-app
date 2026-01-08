@@ -6,7 +6,7 @@ Aplicación full-stack para procesar imágenes usando IA. Funcionalidades: elimi
 
 - **Frontend**: Next.js 16, React, Tailwind CSS, shadcn/ui
 - **Backend**: FastAPI, Python 3.12
-- **Worker**: Celery con rembg (birefnet-general) y CUDA
+- **Worker**: Celery con rembg (birefnet-general) y CUDA 12.1
 - **Cola**: Redis
 - **Infraestructura**: Docker & Docker Compose
 
@@ -34,25 +34,20 @@ Aplicación full-stack para procesar imágenes usando IA. Funcionalidades: elimi
     docker run --rm --gpus all nvidia/cuda:12.1-base-ubuntu22.04 nvidia-smi
     ```
 
-4. (Opcional) Probar la GPU con el worker antes de iniciar:
-    ```bash
-    ./test-worker-gpu.sh
-    ```
-    Busca `✓` en los logs para confirmar que PyTorch y ONNX Runtime están usando la GPU.
-
-5. Construir y levantar los servicios:
+4. Construir y levantar los servicios:
     ```bash
     docker-compose up --build
     ```
 
-6. Acceder a la aplicación:
+5. Acceder a la aplicación:
     - Frontend: http://localhost:3001
     - Backend API: http://localhost:8000
     - API Docs: http://localhost:8000/docs
 
-7. Para ver si el worker está usando la GPU:
+6. Para ver si el worker está usando la GPU:
     ```bash
     # En otra terminal
+    docker-compose logs -f worker
     watch nvidia-smi
     ```
     Cuando proceses una imagen, deberías ver la memoria de GPU aumentar.
@@ -62,7 +57,6 @@ Aplicación full-stack para procesar imágenes usando IA. Funcionalidades: elimi
 ```
 /
 ├── docker-compose.yml
-├── test-worker-gpu.sh  # Script para probar GPU en worker
 ├── frontend/          # Next.js 16 + shadcn/ui
 ├── backend/           # FastAPI + Celery
 │   ├── test_gpu.py    # Script completo de test de GPU
@@ -95,20 +89,29 @@ Aplicación full-stack para procesar imágenes usando IA. Funcionalidades: elimi
 - Comparación interactiva de antes/después
 - Vectorización a SVG de alta calidad
 - Interfaz minimalista y responsive
-- Aceleración por GPU NVIDIA con logging detallado
+- Aceleración por GPU NVIDIA CUDA 12.1 con ONNX Runtime 1.19.2
 
 ## Troubleshooting
+
+### Worker muere con SIGKILL
+
+Si el worker muere con `Worker exited prematurely: signal 9 (SIGKILL)`, es porque está usando demasiada memoria. Esto ocurre cuando ONNX Runtime fallback a CPU.
+
+**Solución:**
+- Verifica que ONNX Runtime está usando CUDA (ver logs abajo)
+- Si no puede usar CUDA, el modelo usará CPU y consumirá mucha memoria
+- Reduce el tamaño de las imágenes de entrada
 
 ### GPU no detectada
 
 Si ves errores como:
 - `Failed to load library libonnxruntime_providers_cuda.so`
+- `libcudnn_adv.so.9: cannot open shared object file`
 - `libnvinfer.so.10: cannot open shared object file`
-- `libnvinfer.so.9: cannot open shared object file`
 
 Ejecuta:
 ```bash
-./test-worker-gpu.sh
+docker-compose run --rm -e TEST_GPU=true worker
 ```
 
 El script mostrará:
@@ -125,31 +128,77 @@ watch nvidia-smi
 
 Deberías ver:
 - El proceso `celery` o `python` usando la GPU
-- La memoria de GPU aumentando
-- El uso de GPU en la columna "GPU-Util"
+- La memoria de GPU aumentando (de 2MB a varios GB)
+- El uso de GPU en la columna "GPU-Util" > 0%
 
-Si NO ves aumento en la memoria de GPU, el worker está usando CPU.
+Si NO ves aumento en la memoria de GPU (sigue en 2MB), el worker está usando CPU.
 
 ### Logs del Worker
 
 Los logs del worker incluyen información detallada:
+
+**Al cargar el modelo:**
 ```
-[timestamp] [INFO] ============================================================
-[timestamp] [INFO] GPU DETECTADA - PYTORCH
-[timestamp] [INFO]   ✓ Dispositivo: NVIDIA GeForce RTX 3080
-[timestamp] [INFO]   ✓ Versión CUDA: 12.1
-[timestamp] [INFO] ============================================================
-[timestamp] [INFO] ONNX RUNTIME PROVIDERS
-[timestamp] [INFO] ============================================================
-[timestamp] [INFO]   ✓ CUDAExecutionProvider
-[timestamp] [INFO] ============================================================
+============================================================
+GPU DETECTADA - PYTORCH
+============================================================
+  ✓ Dispositivo: NVIDIA GeForce RTX 3060
+  ✓ Versión CUDA: 12.1
+  ✓ Memoria: 11.76 GB
+  ✓ Número de GPUs: 1
+============================================================
+ONNX RUNTIME PROVIDERS
+============================================================
+  1. TensorrtExecutionProvider
+  2. CUDAExecutionProvider
+  3. CPUExecutionProvider
+  ✓ ONNX Runtime usará GPU (CUDA)
+============================================================
+Modelo cargado exitosamente
+  Session providers: ['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider']
 ```
 
-Busca `✓` para confirmar que la GPU está configurada correctamente.
+**Al procesar una imagen:**
+```
+============================================================
+INICIANDO PROCESAMIENTO DE IMAGEN
+============================================================
+Input: /data/uploads/xxx.jpg
+Output: /data/results/xxx.png
+Leyendo imagen...
+Procesando con rembg...
+Guardando resultado...
+✓ Imagen procesada exitosamente
+============================================================
+```
+
+### Advertencias de ONNX Runtime
+
+Puedes ver advertencias como:
+```
+Failed to load library libonnxruntime_providers_tensorrt.so with error: libnvinfer.so.10: cannot open shared object file
+Falling back to ['CUDAExecutionProvider', 'CPUExecutionProvider']
+```
+
+**Esto es NORMAL**. ONNX Runtime intenta usar TensorRT primero (más rápido), pero si no está disponible, hace fallback a CUDA (que es lo que queremos usar). Mientras veas `CUDAExecutionProvider` en la lista de providers disponibles, está usando la GPU.
+
+### Aumentar memoria disponible
+
+Si el worker sigue muriendo con SIGKILL:
+
+1. Verifica la memoria disponible del sistema:
+   ```bash
+   free -h
+   ```
+
+2. Aumenta el límite de memoria de Docker Desktop o en Dokploy
+
+3. Reduce el tamaño de las imágenes de entrada antes de procesarlas
 
 ## Notas
 
 - El worker procesa una imagen a la vez (concurrency=1) para evitar OOM en la GPU
 - Las imágenes se guardan en volúmenes Docker compartidos
-- El modelo birefnet-general se descarga automáticamente la primera vez
-- ONNX Runtime intentará usar CUDA primero, fallback a CPU si no está disponible
+- El modelo birefnet-general se descarga automáticamente la primera vez (~973MB)
+- ONNX Runtime 1.19.2 usa CUDA 12.1 directamente (sin TensorRT)
+- Los logs del worker son muy detallados para facilitar debugging
