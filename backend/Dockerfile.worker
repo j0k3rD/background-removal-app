@@ -10,10 +10,11 @@ ENV PATH=/usr/local/cuda/bin:$PATH
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# Instalar dependencias del sistema
+ # Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
+    build-essential \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache /var/cache
@@ -23,10 +24,10 @@ WORKDIR /app
 # Copiar requirements
 COPY requirements.txt .
 
-# Instalar dependencias Python con limpieza agresiva
-# Instalar scipy desde conda primero para evitar problemas de compilación
+ # Instalar dependencias Python con limpieza agresiva
 RUN pip install --no-cache-dir --upgrade pip && \
-    conda install -y -c conda-forge scipy=1.13.1 && \
+    pip install --no-cache-dir scipy==1.13.1 && \
+    python -c "from scipy.sparse.csgraph import _shortest_path; print('scipy OK')" && \
     pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir rembg[gpu] && \
     rm -rf /root/.cache /root/.local/share /tmp/* && \
