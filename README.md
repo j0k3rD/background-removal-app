@@ -244,3 +244,4 @@ Si el worker es >15GB, algo salió mal en el build. Haz un cleanup y rebuild.
 - ONNX Runtime 1.19.2 usa CUDA 12.1 directamente (sin TensorRT)
 - Los logs del worker son muy detallados para facilitar debugging
 - La imagen del worker es grande (~10GB) porque incluye PyTorch, CUDA y cuDNN
+- scipy se instala desde conda para evitar problemas de compilación con numpy 2.x
