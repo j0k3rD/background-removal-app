@@ -26,7 +26,8 @@ COPY requirements.txt .
 
  # Instalar dependencias Python con limpieza agresiva
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir scipy==1.13.1 && \
+    pip install --no-cache-dir numpy==2.1.1 && \
+    pip install --only-binary :all: --no-cache-dir scipy==1.13.1 && \
     python -c "from scipy.sparse.csgraph import _shortest_path; print('scipy OK')" && \
     pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir rembg[gpu] && \
