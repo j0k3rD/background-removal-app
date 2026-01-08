@@ -2,8 +2,6 @@ FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
-ENV PATH="/opt/conda/bin:$PATH"
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
@@ -22,9 +20,8 @@ FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime AS runner
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
-ENV PATH="/opt/conda/bin:$PATH"
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-ENV CUDA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-0}
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \

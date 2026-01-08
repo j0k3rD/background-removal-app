@@ -15,8 +15,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      cache_from:
-        - backend:latest
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
@@ -41,8 +39,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.worker
-      cache_from:
-        - worker:latest
+    runtime: nvidia
     volumes:
       - ./data/uploads:/data/uploads
       - ./data/results:/data/results
@@ -54,9 +51,8 @@ services:
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
       - UPLOAD_DIR=${UPLOAD_DIR:-/data/uploads}
       - RESULT_DIR=${RESULT_DIR:-/data/results}
-      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
-      - CUDA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-0}
-      - LD_LIBRARY_PATH=/usr/local/cuda/lib64
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     depends_on:
       - redis
       - backend
@@ -68,15 +64,13 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+              count: all
+              capabilities: [gpu, compute, utility]
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      cache_from:
-        - frontend:latest
       args:
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
