@@ -9,5 +9,7 @@ onnxruntime-gpu==1.19.2
 rembg==2.0.60
 vtracer==0.6.11
 Pillow==11.0.0
-numpy==2.1.1
-pymatting==1.1.12
+ numpy==2.1.1
+ pymatting==1.1.12
+ scipy==1.13.1
+ 
