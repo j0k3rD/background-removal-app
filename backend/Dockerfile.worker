@@ -10,11 +10,10 @@ ENV PATH=/usr/local/cuda/bin:$PATH
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
- # Instalar dependencias del sistema
+# Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
-    build-essential \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache /var/cache
@@ -24,15 +23,10 @@ WORKDIR /app
 # Copiar requirements
 COPY requirements.txt .
 
- # Instalar dependencias Python con limpieza agresiva
+# Instalar dependencias Python con limpieza agresiva
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --prefer-binary numpy==2.1.1 && \
-    pip install --no-cache-dir --prefer-binary scipy==1.14.1 && \
-    python -c "from scipy.sparse.csgraph import _shortest_path; print('scipy OK')" && \
-    pip install --no-cache-dir --prefer-binary pymatting==1.1.12 && \
-    pip install --no-cache-dir --prefer-binary -r requirements.txt && \
-    pip install --no-cache-dir --prefer-binary rembg[gpu] && \
-    pip install --no-cache-dir --prefer-binary onnxruntime-gpu==1.19.2 && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir rembg[gpu] && \
     rm -rf /root/.cache /root/.local/share /tmp/* && \
     find /opt/conda -type f -name "*.pyc" -delete && \
     find /opt/conda -type d -name "__pycache__" -delete && \
