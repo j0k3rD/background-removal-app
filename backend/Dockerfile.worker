@@ -42,7 +42,6 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x src/check_gpu.py /entrypoint.sh && \
     rm -rf /root/.cache /root/.conda /tmp/* && \
     find /opt/conda -type f -name "*.pyc" -delete && \
-    find /opt/conda -type d -name "__pycache__" -delete && \
-    find /opt/conda -type f -name "*.so" -path "*/site-packages/*/*test*" -delete 2>/dev/null || true
+    find /opt/conda -type d -name "__pycache__" -delete
 
 ENTRYPOINT ["/entrypoint.sh"]
