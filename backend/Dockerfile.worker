@@ -24,7 +24,9 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Instalar dependencias Python con limpieza agresiva
+# Instalar scipy desde conda para asegurar que tenga módulos compilados
 RUN pip install --no-cache-dir --upgrade pip && \
+    conda install -y -c conda-forge scipy=1.14.0 && \
     pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir rembg[gpu] && \
     rm -rf /root/.cache /root/.local/share /tmp/* && \
