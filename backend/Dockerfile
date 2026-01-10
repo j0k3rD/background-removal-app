@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 FROM python:3.12-slim AS runner
 
 WORKDIR /app
+RUN mkdir -p /data/uploads /data/results
 COPY --from=builder /install /usr/local
 COPY src/ ./src/
 
