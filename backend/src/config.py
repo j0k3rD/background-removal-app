@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "/data/uploads"
     RESULT_DIR: str = "/data/results"
     MAX_FILE_SIZE: int = 100 * 1024 * 1024
+    REMBG_MODEL: str = "birefnet-general"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

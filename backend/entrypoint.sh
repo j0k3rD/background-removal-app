@@ -17,6 +17,12 @@ fi
 
 echo ""
 echo "=============================================="
+echo "Pre-cargando modelos para evitar descargas..."
+echo "=============================================="
+python src/preload_models.py
+
+echo ""
+echo "=============================================="
 echo "Iniciando Celery worker..."
 echo "=============================================="
 echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"

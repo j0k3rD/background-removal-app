@@ -1,5 +1,6 @@
 import os
 import logging
+import time
 from celery import Task
 from rembg import remove, new_session
 import vtracer
@@ -55,19 +56,20 @@ def get_session():
     global session
     if session is None:
         check_gpu_availability()
-        logger.info("Cargando modelo birefnet-general...")
+        model_name = settings.REMBG_MODEL
+        logger.info(f"Cargando modelo {model_name}...")
 
         try:
             import onnxruntime as ort
 
             providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-            session = new_session("birefnet-general", providers=providers)
+            session = new_session(model_name, providers=providers)
             logger.info("Modelo cargado exitosamente con GPU")
             logger.info(f"  Session providers: {session.providers}")
         except Exception as e:
             logger.error(f"Error cargando modelo con GPU: {e}")
             logger.error("Intentando fallback a CPU...")
-            session = new_session("birefnet-general")
+            session = new_session(model_name)
             logger.info("Modelo cargado en CPU (fallback)")
 
     return session
@@ -90,11 +92,13 @@ def process_image(self: Task, input_path: str, output_path: str) -> dict:
         logger.info("Leyendo imagen...")
         with open(input_path, "rb") as input_file:
             input_data = input_file.read()
-        
+
         self.update_state(state="PROCESSING", meta={"progress": 50})
-        
+
         logger.info("Procesando con rembg (alpha matting para bordes finos)...")
         session = get_session()
+
+        start_time = time.time()
         output_data = remove(
             input_data,
             session=session,
@@ -103,9 +107,11 @@ def process_image(self: Task, input_path: str, output_path: str) -> dict:
             alpha_matting_background_threshold=10,
             alpha_matting_erode_size=10
         )
-        
+        process_time = time.time() - start_time
+        logger.info(f"Tiempo de procesamiento: {process_time:.2f}s")
+
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
+
         logger.info("Guardando resultado...")
         with open(output_path, "wb") as output_file:
             output_file.write(output_data)
