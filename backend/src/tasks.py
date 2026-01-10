@@ -56,22 +56,20 @@ def get_session():
     if session is None:
         check_gpu_availability()
         logger.info("Cargando modelo birefnet-general...")
-        
+
         try:
             import onnxruntime as ort
-            
-            session_options = ort.SessionOptions()
-            session_options.log_severity_level = 0
-            
-            session = new_session("birefnet-general", session_options)
-            logger.info("Modelo cargado exitosamente")
+
+            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            session = new_session("birefnet-general", providers=providers)
+            logger.info("Modelo cargado exitosamente con GPU")
             logger.info(f"  Session providers: {session.providers}")
         except Exception as e:
-            logger.error(f"Error cargando modelo: {e}")
+            logger.error(f"Error cargando modelo con GPU: {e}")
             logger.error("Intentando fallback a CPU...")
             session = new_session("birefnet-general")
             logger.info("Modelo cargado en CPU (fallback)")
-    
+
     return session
 
 
