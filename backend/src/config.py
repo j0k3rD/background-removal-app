@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     RESULT_DIR: str = "/data/results"
     MAX_FILE_SIZE: int = 100 * 1024 * 1024
     REMBG_MODEL: str = "birefnet-general"
+    REALESRGAN_MODEL: str = "RealESRGAN_x4plus"
+    REALESRGAN_SCALE: int = 4
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

@@ -1,19 +1,21 @@
 import os
 import uuid
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from celery.result import AsyncResult
 from pydantic import BaseModel
 from .config import settings
 from .celery_app import celery_app
-from .tasks import process_image, vectorize_image
+from .tasks import process_image, vectorize_image, enhance_image
 
 app = FastAPI(title="Background Removal API")
 
 
 class UploadRequest(BaseModel):
-    task_type: str  # "remove_background" o "vectorize"
+    task_type: str
+    scale: int = 4
+    enhance_before: bool = False
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,14 +40,25 @@ async def root():
 
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...), task_type: str = "remove_background"):
+async def upload_file(
+    file: UploadFile = File(...),
+    task_type: str = Form("remove_background"),
+    scale: int = Form(4),
+    enhance_before: bool = Form(False)
+):
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
 
-    if task_type not in ["remove_background", "vectorize"]:
+    if task_type not in ["remove_background", "vectorize", "enhance", "vectorize_enhance"]:
         raise HTTPException(
             status_code=400,
-            detail="Invalid task_type. Use 'remove_background' or 'vectorize'"
+            detail="Invalid task_type. Use 'remove_background', 'vectorize', 'enhance', or 'vectorize_enhance'"
+        )
+
+    if scale not in [2, 4, 8]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid scale. Must be 2, 4, or 8"
         )
 
     ext = os.path.splitext(file.filename)[1].lower()
@@ -78,10 +91,18 @@ async def upload_file(file: UploadFile = File(...), task_type: str = "remove_bac
         output_filename = f"{uuid.uuid4()}.png"
         output_path = os.path.join(settings.RESULT_DIR, output_filename)
         task = process_image.delay(input_path, output_path)
-    else:  # vectorize
+    elif task_type == "vectorize":
         output_filename = f"{uuid.uuid4()}.svg"
         output_path = os.path.join(settings.RESULT_DIR, output_filename)
-        task = vectorize_image.delay(input_path, output_path)
+        task = vectorize_image.delay(input_path, output_path, enhance_before=False, enhance_scale=scale)
+    elif task_type == "enhance":
+        output_filename = f"{uuid.uuid4()}.png"
+        output_path = os.path.join(settings.RESULT_DIR, output_filename)
+        task = enhance_image.delay(input_path, output_path, scale=scale)
+    elif task_type == "vectorize_enhance":
+        output_filename = f"{uuid.uuid4()}.svg"
+        output_path = os.path.join(settings.RESULT_DIR, output_filename)
+        task = vectorize_image.delay(input_path, output_path, enhance_before=True, enhance_scale=scale)
 
     return {
         "task_id": task.id,
