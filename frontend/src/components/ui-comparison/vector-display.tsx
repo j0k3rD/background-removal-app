@@ -37,7 +37,7 @@ export function VectorDisplay({ svgUrl, originalUrl, filename }: VectorDisplayPr
           </button>
         </div>
       )}
-      <div className="relative w-full h-96 border rounded-lg bg-[url('/checkerboard.svg')] bg-repeat overflow-hidden">
+      <div className="relative w-full h-96 border rounded-lg bg-muted/30 overflow-hidden">
         <img
           src={showOriginal && originalUrl ? originalUrl : svgUrl}
           alt={filename || 'Result'}

@@ -53,7 +53,7 @@ export function ImageCompare({ leftImage, rightImage, leftLabel = 'Original', ri
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-96 overflow-hidden rounded-lg border bg-gray-900/5 dark:bg-gray-50/5"
+      className="relative w-full h-96 overflow-hidden rounded-lg border bg-gray-900/5 dark:bg-gray-50/5 select-none touch-none outline-none cursor-ew-resize"
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
       onTouchStart={(e) => {

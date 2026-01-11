@@ -149,14 +149,14 @@ def vectorize_image(self: Task, input_path: str, output_path: str) -> dict:
             colormode="color",
             hierarchical="stacked",
             mode="spline",
-            filter_speckle=2,
-            color_precision=8,
-            layer_difference=8,
-            corner_threshold=45,
-            length_threshold=4,
-            max_iterations=15,
-            splice_threshold=30,
-            path_precision=10
+            filter_speckle=1,        # Menos filtrado = más detalle
+            color_precision=10,      # Más precisión de color
+            layer_difference=4,      # Mejor distinción de colores similares
+            corner_threshold=30,     # Esquinas más suaves
+            length_threshold=3,      # Más detalle en curvas
+            max_iterations=20,       # Más iteraciones = mejor calidad
+            splice_threshold=25,
+            path_precision=12        # Curvas más precisas
         )
 
         self.update_state(state="PROCESSING", meta={"progress": 100})
