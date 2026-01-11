@@ -2,7 +2,11 @@
 """Pre-load rembg models to avoid download delays during processing."""
 import logging
 from rembg import new_session
-from .config import settings
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from config import settings
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
