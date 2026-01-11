@@ -15,7 +15,7 @@ import { VectorDisplay } from '@/components/ui-comparison/vector-display'
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const MAX_IMAGES = 10
 
-type TaskType = 'remove_background' | 'vectorize' | 'enhance'
+type TaskType = 'remove_background' | 'vectorize'
 type ScaleType = 2 | 4 | 8
 type ProcessingStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILURE'
 
@@ -45,23 +45,17 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TaskType>('remove_background')
   const [removeBgImages, setRemoveBgImages] = useState<ImageProcess[]>([])
   const [vectorizeImages, setVectorizeImages] = useState<ImageProcess[]>([])
-  const [enhanceImages, setEnhanceImages] = useState<ImageProcess[]>([])
   const [scale, setScale] = useState<ScaleType>(4)
   const [enhanceBeforeVectorize, setEnhanceBeforeVectorize] = useState(false)
 
-  const getImages = (taskType: TaskType) => {
-    if (taskType === 'remove_background') return removeBgImages
-    if (taskType === 'vectorize') return vectorizeImages
-    return enhanceImages
-  }
+  const getImages = (taskType: TaskType) =>
+    taskType === 'remove_background' ? removeBgImages : vectorizeImages
 
   const setImages = (taskType: TaskType, images: ImageProcess[] | ((prev: ImageProcess[]) => ImageProcess[])) => {
     if (taskType === 'remove_background') {
       setRemoveBgImages(images)
-    } else if (taskType === 'vectorize') {
-      setVectorizeImages(images)
     } else {
-      setEnhanceImages(images)
+      setVectorizeImages(images)
     }
   }
 
@@ -146,25 +140,6 @@ export default function Home() {
     }
   }, [handleUpload])
 
-  const onDropEnhance = useCallback(async (acceptedFiles: File[]) => {
-    const images = getImages('enhance')
-    const newImages: ImageProcess[] = acceptedFiles.map(file => ({
-      file,
-      taskId: null,
-      status: null as ProcessingStatus | null,
-      originalUrl: null,
-      processedUrl: null,
-      progress: 0,
-      error: null
-    }))
-
-    setEnhanceImages([...images, ...newImages])
-
-    for (const file of acceptedFiles) {
-      await handleUpload(file, 'enhance')
-    }
-  }, [handleUpload])
-
   const { getRootProps: getRemoveBgRootProps, getInputProps: getRemoveBgInputProps, isDragActive: isRemoveBgActive } = useDropzone({
     onDrop: onDropRemoveBg,
     accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] },
@@ -175,14 +150,6 @@ export default function Home() {
 
   const { getRootProps: getVectorizeRootProps, getInputProps: getVectorizeInputProps, isDragActive: isVectorizeActive } = useDropzone({
     onDrop: onDropVectorize,
-    accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] },
-    maxSize: 100 * 1024 * 1024,
-    multiple: true,
-    maxFiles: MAX_IMAGES,
-  })
-
-  const { getRootProps: getEnhanceRootProps, getInputProps: getEnhanceInputProps, isDragActive: isEnhanceActive } = useDropzone({
-    onDrop: onDropEnhance,
     accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] },
     maxSize: 100 * 1024 * 1024,
     multiple: true,
@@ -235,14 +202,12 @@ export default function Home() {
 
     const intervalRemoveBg = setInterval(() => checkAllStatuses('remove_background'), 2000)
     const intervalVectorize = setInterval(() => checkAllStatuses('vectorize'), 2000)
-    const intervalEnhance = setInterval(() => checkAllStatuses('enhance'), 2000)
 
     return () => {
       clearInterval(intervalRemoveBg)
       clearInterval(intervalVectorize)
-      clearInterval(intervalEnhance)
     }
-  }, [removeBgImages, vectorizeImages, enhanceImages])
+  }, [removeBgImages, vectorizeImages])
 
   const handleRemoveImage = useCallback((index: number, taskType: TaskType) => {
     setImages(taskType, prev => prev.filter((_, i) => i !== index))
@@ -268,7 +233,6 @@ export default function Home() {
 
   const renderImageCard = (img: ImageProcess, index: number, taskType: TaskType) => {
     const isVectorize = taskType === 'vectorize'
-    const isEnhance = taskType === 'enhance'
     const isProcessing = img.status === 'PENDING' || img.status === 'PROCESSING'
     const isSuccess = img.status === 'SUCCESS'
     const hasError = img.error !== null
@@ -290,8 +254,6 @@ export default function Home() {
                 <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                   {isVectorize ? (
                     <FileText className="h-4 w-4 text-primary" />
-                  ) : isEnhance ? (
-                    <Sparkles className="h-4 w-4 text-primary" />
                   ) : (
                     <ImageIcon className="h-4 w-4 text-primary" />
                   )}
@@ -335,7 +297,7 @@ export default function Home() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className="text-xs">
-                  {isVectorize ? 'SVG Result' : isEnhance ? `${scale}x Enhanced` : 'Compare images'}
+                  {isVectorize ? 'SVG Result' : 'Compare images'}
                 </Badge>
                 <Button
                   size="sm"
@@ -350,13 +312,6 @@ export default function Home() {
               </div>
               {isVectorize ? (
                 <VectorDisplay svgUrl={img.processedUrl} originalUrl={img.originalUrl || undefined} filename={img.file.name} />
-              ) : isEnhance ? (
-                <ImageCompare
-                  leftImage={img.originalUrl}
-                  rightImage={img.processedUrl}
-                  leftLabel="Original"
-                  rightLabel={`${scale}x Enhanced`}
-                />
               ) : (
                 <ImageCompare
                   leftImage={img.originalUrl}
@@ -395,7 +350,7 @@ export default function Home() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TaskType)} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-muted/50">
+          <TabsList className="grid w-full grid-cols-2 h-auto p-1 bg-muted/50">
             <TabsTrigger value="remove_background" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <ImageIcon className="h-4 w-4 mr-2" />
               Remove BG
@@ -403,10 +358,6 @@ export default function Home() {
             <TabsTrigger value="vectorize" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <FileText className="h-4 w-4 mr-2" />
               Vectorize
-            </TabsTrigger>
-            <TabsTrigger value="enhance" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              <Sparkles className="h-4 w-4 mr-2" />
-              Enhance
             </TabsTrigger>
           </TabsList>
 
@@ -528,69 +479,6 @@ export default function Home() {
             {vectorizeImages.length > 0 && (
               <div className="grid gap-4">
                 {vectorizeImages.map((img, index) => renderImageCard(img, index, 'vectorize'))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="enhance" className="space-y-6">
-            <Card className="border-none shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Maximize2 className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Upscale factor: </span>
-                  <div className="flex gap-1">
-                    {[2, 4, 8].map((s) => (
-                      <Button
-                        key={s}
-                        variant={scale === s ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setScale(s as ScaleType)}
-                        className="h-7 px-3 text-xs"
-                      >
-                        {s}x
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {canUpload('enhance') && (
-              <Card className="border-none shadow-lg">
-                <CardContent className="p-8">
-                  <div
-                    {...getEnhanceRootProps()}
-                    className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-200 ${
-                      isEnhanceActive
-                        ? 'border-primary bg-primary/5 scale-[1.02]'
-                        : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                    }`}
-                  >
-                    <input {...getEnhanceInputProps()} />
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="p-4 bg-primary/10 rounded-full">
-                        <Upload className="h-8 w-8 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-lg font-semibold mb-1">
-                          {isEnhanceActive ? 'Drop images here' : 'Upload images to enhance'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Upscale and improve image quality with AI ({scale}x enhancement, up to {MAX_IMAGES} images)
-                        </p>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        JPG, PNG, WEBP up to 100MB each
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {enhanceImages.length > 0 && (
-              <div className="grid gap-4">
-                {enhanceImages.map((img, index) => renderImageCard(img, index, 'enhance'))}
               </div>
             )}
           </TabsContent>
