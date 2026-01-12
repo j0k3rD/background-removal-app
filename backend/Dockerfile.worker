@@ -10,13 +10,10 @@ ENV PATH=/usr/local/cuda/bin:$PATH
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# Instalar dependencias del sistema
+# Instalar dependencias del sistema minimal
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
     libgomp1 \
     && apt-get autoremove -y \
     && apt-get clean \
@@ -28,18 +25,15 @@ WORKDIR /app
 RUN mkdir -p /data/uploads /data/results
 
 # Copiar requirements
-COPY requirements.txt .
+COPY requirements-worker.txt .
 
 # Instalar dependencias Python con limpieza agresiva
-# Instalar scipy desde conda para asegurar que tenga módulos compilados
 RUN pip install --no-cache-dir --upgrade pip && \
-    conda install -y -c conda-forge scipy=1.14.0 && \
-    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r requirements-worker.txt && \
     pip install --no-cache-dir rembg[gpu] && \
     rm -rf /root/.cache /root/.local/share /tmp/* && \
     find /opt/conda -type f -name "*.pyc" -delete && \
-    find /opt/conda -type d -name "__pycache__" -delete && \
-    conda clean -afy --all
+    find /opt/conda -type d -name "__pycache__" -delete
 
 # Copiar código fuente
 COPY src/ ./src/
