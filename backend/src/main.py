@@ -7,7 +7,6 @@ from celery.result import AsyncResult
 from pydantic import BaseModel
 from .config import settings
 from .celery_app import celery_app
-from .tasks import process_image, vectorize_image, enhance_image
 
 app = FastAPI(title="Background Removal API")
 
@@ -90,19 +89,19 @@ async def upload_file(
     if task_type == "remove_background":
         output_filename = f"{uuid.uuid4()}.png"
         output_path = os.path.join(settings.RESULT_DIR, output_filename)
-        task = process_image.delay(input_path, output_path)
+        task = celery_app.send_task("process_image", args=[input_path, output_path])
     elif task_type == "vectorize":
         output_filename = f"{uuid.uuid4()}.svg"
         output_path = os.path.join(settings.RESULT_DIR, output_filename)
-        task = vectorize_image.delay(input_path, output_path, enhance_before=False, enhance_scale=scale)
+        task = celery_app.send_task("vectorize_image", args=[input_path, output_path, False, scale])
     elif task_type == "enhance":
         output_filename = f"{uuid.uuid4()}.png"
         output_path = os.path.join(settings.RESULT_DIR, output_filename)
-        task = enhance_image.delay(input_path, output_path, scale=scale)
+        task = celery_app.send_task("enhance_image", args=[input_path, output_path, scale])
     elif task_type == "vectorize_enhance":
         output_filename = f"{uuid.uuid4()}.svg"
         output_path = os.path.join(settings.RESULT_DIR, output_filename)
-        task = vectorize_image.delay(input_path, output_path, enhance_before=True, enhance_scale=scale)
+        task = celery_app.send_task("vectorize_image", args=[input_path, output_path, True, scale])
 
     return {
         "task_id": task.id,
