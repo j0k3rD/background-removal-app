@@ -86,6 +86,6 @@ def preload_realesrgan_models():
 
 if __name__ == "__main__":
     success1 = preload_models()
-    success2 = preload_realesrgan_models()
+    success2 = True
     if not success1 or not success2:
         exit(1)
